@@ -1,9 +1,42 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addUpdateEntry = exports.getUserAndEntries = exports.updateUserProfile = exports.deleteUser = exports.addUser = void 0;
+exports.deleteEntry = exports.addUpdateEntry = exports.getUserAndEntries = exports.updateUserProfile = exports.deleteUser = exports.addUser = void 0;
 const zod_1 = require("zod");
 const https_1 = require("firebase-functions/v2/https");
-const functions = require("firebase-functions/v1");
+const functions = __importStar(require("firebase-functions/v1"));
 const firestore_1 = require("firebase-admin/firestore");
 const app_1 = require("firebase-admin/app");
 const auth_1 = require("firebase-admin/auth");
@@ -45,7 +78,7 @@ const ProfileUpdateZ = UserZ.partial({
     uid: true,
     created: true,
     entries: true,
-    tags: true,
+    // tags: true,
     email: true,
 });
 async function validateUid(request) {
@@ -178,6 +211,7 @@ exports.getUserAndEntries = (0, https_1.onRequest)({ cors: true }, async (reques
     response.status(200).send(user);
 });
 exports.addUpdateEntry = (0, https_1.onRequest)({ cors: true }, async (request, response) => {
+    // TODO: Decide whether to handle case where start date changes, deleting entry with old date
     const uid = await validateUid(request);
     const { start, note, tags } = request.query;
     const newEntry = {
@@ -200,7 +234,6 @@ exports.addUpdateEntry = (0, https_1.onRequest)({ cors: true }, async (request, 
     })
         .catch(e => {
         throw new Error("Error adding/updating entry: " + e.message);
-        // response.status(500).send(e.message)
     });
     return entriesObject(entriesRef)
         .then(entries => {
@@ -215,13 +248,34 @@ exports.addUpdateEntry = (0, https_1.onRequest)({ cors: true }, async (request, 
         response.status(500).send(e.message);
     });
 });
-// export const addTagHelper = async (tagName: string): Promise<WriteResult> => {
-// }
-// export const addTag = onRequest({ cors: true }, async (request, response) => {
-//     const uid = await validateUid(request)
-//     const { tagName } = request.query as { tagName: string }
-//     addTagHelper(tagName)
-//         .then(res => response.status(200).send({ uid: uid, updated: res.writeTime }))
-//         .catch(e => response.status(500).send(e.message))
-// })
+exports.deleteEntry = (0, https_1.onRequest)({ cors: true }, async (request, response) => {
+    const uid = await validateUid(request);
+    const { start } = request.query;
+    const result = ISODateZ.safeParse(start);
+    if (!result.success) {
+        (0, logger_1.error)("No valid start date provided");
+        response.status(400).send("No valid start date provided");
+        return;
+    }
+    const startDate = result.data;
+    const docRef = db.users.doc(uid).collection("entries").doc(startDate);
+    return docRef
+        .get()
+        .then(doc => {
+        if (doc.exists) {
+            return docRef.delete();
+        }
+        else {
+            throw new Error(`No entry with start date ${startDate}, uid: ${uid} found in db`);
+        }
+    })
+        .then((res) => {
+        (0, logger_1.log)(`Deleted entry, start date: ${startDate}, uid: ${uid}`);
+        response.status(200).send({ uid: uid, start: startDate, updated: res.writeTime });
+    })
+        .catch(e => {
+        (0, logger_1.error)(e.message);
+        response.status(400).send(e.message);
+    });
+});
 //# sourceMappingURL=index.js.map

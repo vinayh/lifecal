@@ -25,6 +25,8 @@ const db = {
 //     color: z.string(),
 // })
 
+
+
 const ISODateZ = z.string().refine(i => /^\d{4}-\d{2}-\d{2}$/.test(i))
 
 const EntryZ = z.object({
@@ -56,7 +58,7 @@ const ProfileUpdateZ = UserZ.partial({
     uid: true,
     created: true,
     entries: true,
-    tags: true,
+    // tags: true,
     email: true,
 })
 
@@ -214,6 +216,7 @@ export const getUserAndEntries = onRequest(
 export const addUpdateEntry = onRequest(
     { cors: true },
     async (request, response) => {
+        // TODO: Decide whether to handle case where start date changes, deleting entry with old date
         const uid = await validateUid(request)
         const { start, note, tags } = request.query as {
             start: string
@@ -242,7 +245,6 @@ export const addUpdateEntry = onRequest(
             })
             .catch(e => {
                 throw new Error("Error adding/updating entry: " + e.message)
-                // response.status(500).send(e.message)
             })
         return entriesObject(entriesRef)
             .then(entries => {
@@ -305,3 +307,5 @@ export const deleteEntry = onRequest(
 //         .then(res => response.status(200).send({ uid: uid, updated: res.writeTime }))
 //         .catch(e => response.status(500).send(e.message))
 // })
+
+
