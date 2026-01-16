@@ -554,7 +554,7 @@ export const EntryZ = z.object({
     note: z.string(),
     tags: z.array(z.string()),
 })
-export const NewEntryZ = EntryZ.partial({ id: true, created: true })
+export const NewEntryZ = EntryZ.partial({ created: true })
 export type Entry = z.infer<typeof EntryZ>
 
 export const UserProfileZ = z.object({
