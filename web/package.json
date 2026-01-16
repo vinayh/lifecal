@@ -21,7 +21,6 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
     "firebase": "^12.8.0",
-    "firebaseui": "^6.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-firebase-hooks": "^5.1.1",

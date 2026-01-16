@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { StateCreator, create } from "zustand"
 import { PersistOptions, persist } from "zustand/middleware"
-import "firebaseui/dist/firebaseui.css"
+
 import {
     getAuth,
     User as AuthUser,

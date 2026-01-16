@@ -2303,13 +2303,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dialog-polyfill@npm:^0.4.7":
-  version: 0.4.10
-  resolution: "dialog-polyfill@npm:0.4.10"
-  checksum: 10c0/6c91bd23086303e5ee45b59ab0736436b7486a1985a3f1a560ae5495f41cc44f6b4e19333f0c3c18a6f0bffb7712d82b9107e313de5e7140ef4645b81f6fd088
-  languageName: node
-  linkType: hard
-
 "dir-glob@npm:^3.0.1":
   version: 3.0.1
   resolution: "dir-glob@npm:3.0.1"
@@ -2822,18 +2815,6 @@ __metadata:
     "@firebase/storage-compat": "npm:0.4.0"
     "@firebase/util": "npm:1.13.0"
   checksum: 10c0/5b5656e6198174936e6a6ce6878572a836ada80a0df8996fd63cd9d3bac88acd5332e26c13db1eb42c454d26c23f1d581f3e27437d4fdad6c13f29ecc0ff37ac
-  languageName: node
-  linkType: hard
-
-"firebaseui@npm:^6.1.0":
-  version: 6.1.0
-  resolution: "firebaseui@npm:6.1.0"
-  dependencies:
-    dialog-polyfill: "npm:^0.4.7"
-    material-design-lite: "npm:^1.2.0"
-  peerDependencies:
-    firebase: ^9.1.3 || ^10.0.0
-  checksum: 10c0/9ca3eb0c6b3378bbb0ffc53228cb25772e8248b31ca96f4f9ca9e40c94689fcd4bbd7c9dce7154f1e8812e7109cdd44aaa5349eded43694eb12b481cf06cd49b
   languageName: node
   linkType: hard
 
@@ -3390,13 +3371,6 @@ __metadata:
     promise-retry: "npm:^2.0.1"
     ssri: "npm:^10.0.0"
   checksum: 10c0/43b9f6dcbc6fe8b8604cb6396957c3698857a15ba4dbc38284f7f0e61f248300585ef1eb8cc62df54e9c724af977e45b5cdfd88320ef7f53e45070ed3488da55
-  languageName: node
-  linkType: hard
-
-"material-design-lite@npm:^1.2.0":
-  version: 1.3.0
-  resolution: "material-design-lite@npm:1.3.0"
-  checksum: 10c0/cbe7c9c540a23f3913fddfa292ae5df607441cc47353bafe90bce8d279ba47e3e881548db30a44f1fddbabba9b2c51a8bd6a06c866a99725e8cdd5dd10978b5d
   languageName: node
   linkType: hard
 
@@ -4509,11 +4483,11 @@ __metadata:
 
 "typescript@patch:typescript@npm%3A^5.9.3#optional!builtin<compat/typescript>":
   version: 5.9.3
-  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=d69c25"
+  resolution: "typescript@patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/6f7e53bf0d9702350deeb6f35e08b69cbc8b958c33e0ec77bdc0ad6a6c8e280f3959dcbfde6f5b0848bece57810696489deaaa53d75de3578ff255d168c1efbd
+  checksum: 10c0/ad09fdf7a756814dce65bc60c1657b40d44451346858eea230e10f2e95a289d9183b6e32e5c11e95acc0ccc214b4f36289dcad4bf1886b0adb84d711d336a430
   languageName: node
   linkType: hard
 
@@ -4668,7 +4642,6 @@ __metadata:
     eslint-plugin-react-hooks: "npm:^7.0.1"
     eslint-plugin-react-refresh: "npm:^0.4.26"
     firebase: "npm:^12.8.0"
-    firebaseui: "npm:^6.1.0"
     gh-pages: "npm:^6.3.0"
     postcss: "npm:^8.5.6"
     postcss-preset-mantine: "npm:^1.18.0"
