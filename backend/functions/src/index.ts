@@ -1,4 +1,3 @@
-import { z } from "zod"
 import { Request, onRequest } from "firebase-functions/v2/https"
 import * as functions from "firebase-functions/v1"
 import {
@@ -13,70 +12,32 @@ import { DecodedIdToken, getAuth } from "firebase-admin/auth"
 import { log, debug, error } from "firebase-functions/logger"
 import { formatISO } from "date-fns"
 
+import {
+    ISODateZ,
+    EntryZ,
+    UserZ,
+    InitialUserZ,
+    ProfileUpdateZ,
+    type Entry,
+    type User,
+} from "./schemas"
+
 initializeApp()
 const db = {
     users: getFirestore().collection("users"),
 }
 
-// const TagZ = z.object({
-//     id: z.number(),
-//     created: z.date(),
-//     name: z.string(),
-//     color: z.string(),
-// })
-
-
-
-const ISODateZ = z.string().refine(i => /^\d{4}-\d{2}-\d{2}$/.test(i))
-
-const EntryZ = z.object({
-    created: z.date(),
-    start: ISODateZ,
-    note: z.string(),
-    tags: z.array(z.string()),
-})
-type Entry = z.infer<typeof EntryZ>
-
-const UserZ = z.object({
-    uid: z.string(),
-    created: z.coerce.date(),
-    name: z.string(),
-    birth: z.coerce.date(),
-    expYears: z.number().refine(i => i > 0),
-    email: z.string().email(),
-    entries: z.record(ISODateZ, EntryZ).optional(),
-    // tags: z.array(TagZ),
-})
-const InitialUserZ = UserZ.partial({
-    name: true,
-    birth: true,
-    expYears: true,
-})
-type User = z.infer<typeof UserZ>
-
-const ProfileUpdateZ = UserZ.partial({
-    uid: true,
-    created: true,
-    entries: true,
-    // tags: true,
-    email: true,
-})
-
 async function validateUid(request: Request): Promise<string> {
-    const { uid, idToken } = request.query as { uid: string; idToken: string }
-    debug(`UID: ${uid}, idToken: ${idToken}`)
+    const authHeader = request.headers.authorization
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        throw new Error("Missing or invalid Authorization header")
+    }
+    const idToken = authHeader.split("Bearer ")[1]
     return getAuth()
         .verifyIdToken(idToken)
         .then((decodedToken: DecodedIdToken) => decodedToken.uid)
-        .then(decodedUid => {
-            if (uid === decodedUid) {
-                return decodedUid
-            } else {
-                throw Error("UID provided does not match session token")
-            }
-        })
         .catch(e => {
-            throw Error("Failed to decode UID from idToken: " + e.message)
+            throw new Error("Failed to verify idToken: " + e.message)
         })
 }
 
@@ -127,46 +88,38 @@ export const deleteUser = functions.auth.user().onDelete(async user => {
 export const updateUserProfile = onRequest(
     { cors: true },
     async (request, response) => {
-        const { name, birth, expYears } = request.query as {
-            name: string
-            birth: string
-            expYears: string
-        }
-        const newUser = ProfileUpdateZ.safeParse({
-            name: name,
-            birth: new Date(birth),
-            expYears: parseInt(expYears),
-        })
-        if (!newUser.success) {
-            response.status(400).send("Invalid user profile")
-            return
-        }
-        const uid = await validateUid(request)
-        db.users
-            .doc(uid)
-            .update({
+        try {
+            const uid = await validateUid(request)
+            const { name, birth, expYears } = request.body as {
+                name: string
+                birth: string
+                expYears: number
+            }
+            const newUser = ProfileUpdateZ.safeParse({
+                name,
+                birth: new Date(birth),
+                expYears,
+            })
+            if (!newUser.success) {
+                response.status(400).send("Invalid user profile")
+                return
+            }
+            const result = await db.users.doc(uid).update({
                 updated: FieldValue.serverTimestamp(),
                 ...newUser.data,
             })
-            .then(result =>
-                response
-                    .status(200)
-                    .send({ uid: uid, updated: result.writeTime })
-            )
-            .catch(e => {
-                error("Error editing user profile: " + e.message)
-                response.status(500).send(e.message)
-            })
+            response.status(200).send({ uid, updated: result.writeTime })
+        } catch (e: any) {
+            error("Error editing user profile: " + e.message)
+            response.status(500).send(e.message)
+        }
     }
 )
 
 const waitForUser = (userRef: DocumentReference): Promise<User> => {
-    var loadedUser = false
+    let loadedUser = false
     return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            reject(new Error("User not found before timeout"))
-        }, 5000)
-        userRef.onSnapshot(snapshot => {
+        const unsubscribe = userRef.onSnapshot(snapshot => {
             if (snapshot.exists && !loadedUser) {
                 const user = snapshot.data()
                 if (user) {
@@ -177,122 +130,114 @@ const waitForUser = (userRef: DocumentReference): Promise<User> => {
                     if (user.birth) {
                         user.birth = user.birth.toDate()
                     }
+                    unsubscribe()
                     resolve(user as User)
                 }
             }
         })
+        setTimeout(() => {
+            unsubscribe()
+            reject(new Error("User not found before timeout"))
+        }, 5000)
     })
 }
 
 export const getUserAndEntries = onRequest(
     { cors: true },
     async (request, response) => {
-        const userRef = await validateUid(request).then(uid =>
-            db.users.doc(uid)
-        )
-        const user = await waitForUser(userRef)
-            .then(user => {
-                const completeParsed = UserZ.safeParse(user)
-                if (completeParsed.success) {
-                    return completeParsed.data
-                } else {
-                    const initialParsed = InitialUserZ.safeParse(user)
-                    if (initialParsed.success) {
-                        return initialParsed.data
+        try {
+            const userRef = await validateUid(request).then(uid =>
+                db.users.doc(uid)
+            )
+            const user = await waitForUser(userRef)
+                .then(user => {
+                    const completeParsed = UserZ.safeParse(user)
+                    if (completeParsed.success) {
+                        return completeParsed.data
                     } else {
-                        throw new Error("Invalid user profile")
+                        const initialParsed = InitialUserZ.safeParse(user)
+                        if (initialParsed.success) {
+                            return initialParsed.data
+                        } else {
+                            throw new Error("Invalid user profile")
+                        }
                     }
-                }
-            })
-            .catch(e => {
-                throw new Error("Failed to get user from request: " + e.message)
-            })
-        user.entries = await entriesObject(userRef.collection("entries"))
-        debug(user)
-        response.status(200).send(user)
+                })
+            user.entries = await entriesObject(userRef.collection("entries"))
+            debug(user)
+            response.status(200).send(user)
+        } catch (e: any) {
+            error("Failed to get user: " + e.message)
+            response.status(500).send(e.message)
+        }
     }
 )
 
 export const addUpdateEntry = onRequest(
     { cors: true },
     async (request, response) => {
-        // TODO: Decide whether to handle case where start date changes, deleting entry with old date
-        const uid = await validateUid(request)
-        const { start, note, tags } = request.query as {
-            start: string
-            note: string
-            tags: string
+        try {
+            const uid = await validateUid(request)
+            const { start, note, tags } = request.body as {
+                start: string
+                note: string
+                tags: string[]
+            }
+            const newEntry = {
+                updated: FieldValue.serverTimestamp(),
+                start: formatISO(start, { representation: "date" }),
+                note,
+                tags,
+            }
+            const entriesRef = db.users.doc(uid).collection("entries")
+            const entryDoc = await entriesRef.doc(newEntry.start).get()
+            const res = entryDoc.exists
+                ? await entryDoc.ref.update(newEntry)
+                : await entryDoc.ref.create({
+                      created: FieldValue.serverTimestamp(),
+                      ...newEntry,
+                  })
+            const entries = await entriesObject(entriesRef)
+            response.status(200).send({
+                uid,
+                updated: res.writeTime,
+                entries,
+            })
+        } catch (e: any) {
+            error("Error adding/updating entry: " + e.message)
+            response.status(500).send(e.message)
         }
-        const newEntry = {
-            updated: FieldValue.serverTimestamp(),
-            start: formatISO(start, { representation: "date" }),
-            note: note,
-            tags: JSON.parse(tags),
-        }
-        const entriesRef = db.users.doc(uid).collection("entries")
-        const res = await entriesRef
-            .doc(newEntry.start)
-            .get()
-            .then(entryDoc => {
-                if (entryDoc.exists) {
-                    return entryDoc.ref.update(newEntry)
-                } else {
-                    return entryDoc.ref.create({
-                        created: FieldValue.serverTimestamp(),
-                        ...newEntry,
-                    })
-                }
-            })
-            .catch(e => {
-                throw new Error("Error adding/updating entry: " + e.message)
-            })
-        return entriesObject(entriesRef)
-            .then(entries => {
-                response.status(200).send({
-                    uid: uid,
-                    updated: res.writeTime,
-                    entries: entries,
-                })
-            })
-            .catch(e => {
-                error("Error getting updated entries: " + e.message)
-                response.status(500).send(e.message)
-            })
     }
 )
 
 export const deleteEntry = onRequest(
     { cors: true },
     async (request, response) => {
-        const uid = await validateUid(request)
-        const { start } = request.query
-        const result = ISODateZ.safeParse(start)
-        if (!result.success) {
-            error("No valid start date provided")
-            response.status(400).send("No valid start date provided")
-            return
+        try {
+            const uid = await validateUid(request)
+            const { start } = request.body as { start: string }
+            const result = ISODateZ.safeParse(start)
+            if (!result.success) {
+                error("No valid start date provided")
+                response.status(400).send("No valid start date provided")
+                return
+            }
+            const startDate = result.data
+            const docRef = db.users.doc(uid).collection("entries").doc(startDate)
+            const doc = await docRef.get()
+            if (!doc.exists) {
+                response.status(404).send(
+                    `No entry with start date ${startDate}, uid: ${uid} found in db`
+                )
+                return
+            }
+            const res: WriteResult = await docRef.delete()
+            log(`Deleted entry, start date: ${startDate}, uid: ${uid}`)
+            response.status(200).send({ uid, start: startDate, updated: res.writeTime })
+        } catch (e: any) {
+            error(e.message)
+            response.status(500).send(e.message)
         }
-        const startDate = result.data
-        const docRef = db.users.doc(uid).collection("entries").doc(startDate)
-        return docRef
-            .get()
-            .then(doc => {
-                if (doc.exists) {
-                    return docRef.delete()
-                } else {
-                    throw new Error(
-                        `No entry with start date ${startDate}, uid: ${uid} found in db`
-                    )
-                }
-            })
-            .then((res: WriteResult) => {
-                log(`Deleted entry, start date: ${startDate}, uid: ${uid}`)
-                response.status(200).send({ uid: uid, start: startDate, updated: res.writeTime })
-            })
-            .catch(e => {
-                error(e.message)
-                response.status(400).send(e.message)
-            })
     }
 )
 

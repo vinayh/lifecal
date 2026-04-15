@@ -6,7 +6,6 @@ import {
     IconLogout,
     IconLogin,
     IconCalendar,
-    IconInfoCircle,
     Icon,
 } from "@tabler/icons-react"
 
@@ -33,12 +32,6 @@ const privateLinks: NavbarItem[] = [
 
 const publicLinks: NavbarItem[] = [
     { link: "/", label: "Home", icon: IconHome2, onClick: undefined },
-    {
-        link: "/about",
-        label: "About",
-        icon: IconInfoCircle,
-        onClick: undefined,
-    },
 ]
 
 export const Navbar = () => {

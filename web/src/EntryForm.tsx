@@ -4,7 +4,7 @@ import "@mantine/dates/styles.css"
 
 import { newLoading, updateError, updateSuccess } from "./notifications"
 import { useUserStore } from "./user"
-import { EntryInfo } from "./Calendar"
+import { EntryInfo } from "./calendar-utils"
 
 export const EntryForm = ({ entryInfo }: { entryInfo: EntryInfo }) => {
     const { addUpdateEntry, deleteEntry } = useUserStore()

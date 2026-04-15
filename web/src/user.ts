@@ -16,6 +16,19 @@ import {
 import { formatISO } from "date-fns"
 
 import { app } from "./firebase"
+import {
+    ISODateZ,
+    EntryZ,
+    NewEntryZ,
+    UserProfileZ,
+    InitialUserZ,
+    TagZ,
+    type UserProfile,
+    type Entry,
+    type Tag,
+    type ProfileFormData,
+    type EntryFormData,
+} from "./schemas"
 
 interface UserState {
     userProfile: UserProfile | null
@@ -130,9 +143,6 @@ export const useUserStore = create<UserState>()(
                 set(() => ({ loadingAuth: true }))
                 try {
                     if (authMethod === "emailPassword" && data) {
-                        console.log(
-                            `Signing in with ${data.email}, ${data.password}`
-                        )
                         try {
                             await signInWithEmailAndPassword(
                                 auth,
@@ -158,19 +168,18 @@ export const useUserStore = create<UserState>()(
                             new GoogleAuthProvider().addScope(
                                 "https://www.googleapis.com/auth/userinfo.email"
                             )
-                            // browserPopupRedirectResolver
                         )
                     } else {
                         console.error("Invalid auth method specified")
                         return Promise.reject(FetchStatus.Error)
                     }
+                    return Promise.resolve(FetchStatus.Success)
                 } catch (error) {
                     get().setAuth(null)
                     console.error("Error signing in")
                     return Promise.reject(FetchStatus.Error)
                 } finally {
                     set(() => ({ loadingAuth: false }))
-                    return Promise.resolve(FetchStatus.Success)
                 }
             },
             logout: () => {
@@ -207,7 +216,15 @@ export const useUserStore = create<UserState>()(
                         .getIdToken()
                         .then(idToken =>
                             fetch(
-                                `${BACKEND_URL}/updateUserProfile?uid=${userAuth.uid}&idToken=${idToken}&name=${name}&birth=${birth}&expYears=${expYears}`
+                                `${BACKEND_URL}/updateUserProfile`,
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        "Authorization": `Bearer ${idToken}`,
+                                        "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({ name, birth, expYears }),
+                                }
                             )
                         )
                         .then(res => {
@@ -282,11 +299,15 @@ export const useUserStore = create<UserState>()(
                     .getIdToken()
                     .then(idToken =>
                         fetch(
-                            `${BACKEND_URL}/addUpdateEntry?uid=${
-                                userAuth.uid
-                            }&idToken=${idToken}&start=${start}&note=${note}&tags=${encodeURIComponent(
-                                JSON.stringify(tags)
-                            )}`
+                            `${BACKEND_URL}/addUpdateEntry`,
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Authorization": `Bearer ${idToken}`,
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ start, note, tags }),
+                            }
                         )
                     )
                     .then(res => {
@@ -342,7 +363,15 @@ export const useUserStore = create<UserState>()(
                     .getIdToken()
                     .then(idToken =>
                         fetch(
-                            `${BACKEND_URL}/deleteEntry?uid=${userAuth.uid}&idToken=${idToken}&start=${result.data}`
+                            `${BACKEND_URL}/deleteEntry`,
+                            {
+                                method: "DELETE",
+                                headers: {
+                                    "Authorization": `Bearer ${idToken}`,
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ start: result.data }),
+                            }
                         )
                     )
                     .then(res => {
@@ -358,9 +387,8 @@ export const useUserStore = create<UserState>()(
                             console.error("No valid entries to update")
                             return Promise.reject(FetchStatus.Error)
                         }
-                        delete entries[start]
-                        get().setEntries(entries)
-                        console.log(`Deleted entry with start date: ${start}`)
+                        const { [start]: _, ...remaining } = entries
+                        get().setEntries(remaining)
                         return Promise.resolve(FetchStatus.Success)
                     })
                     .catch(error => {
@@ -391,7 +419,12 @@ export const useUserStore = create<UserState>()(
                     auth.getIdToken(true)
                         .then(idToken =>
                             fetch(
-                                `${BACKEND_URL}/getUserAndEntries?uid=${auth.uid}&idToken=${idToken}`
+                                `${BACKEND_URL}/getUserAndEntries`,
+                                {
+                                    headers: {
+                                        "Authorization": `Bearer ${idToken}`,
+                                    },
+                                }
                             )
                         )
                         .then(res => {
@@ -523,8 +556,6 @@ export enum AuthStatus {
 export enum ProfileStatus {
     CompleteProfile = "Completed profile",
     IncompleteProfile = "Incomplete profile",
-    InvalidProfile = "Invalid profile",
-    ProfileLoadError = "Error loading profile",
     NoProfile = "No profile loaded",
 }
 
@@ -533,55 +564,17 @@ export type AuthMethod = (typeof authMethods)[number]
 
 export const auth = getAuth(app)
 
-export const LoginFormEntryZ = z.object({
-    email: z.string().email(),
-    password: z.string(),
-})
-
-export const TagZ = z.object({
-    id: z.number(),
-    created: z.string().datetime(),
-    name: z.string(),
-    color: z.string(),
-})
-export type Tag = z.infer<typeof TagZ>
-
-export const ISODateZ = z.string().refine(i => /^\d{4}-\d{2}-\d{2}$/.test(i))
-
-export const EntryZ = z.object({
-    created: z.string().datetime(),
-    start: ISODateZ,
-    note: z.string(),
-    tags: z.array(z.string()),
-})
-export const NewEntryZ = EntryZ.partial({ created: true })
-export type Entry = z.infer<typeof EntryZ>
-
-export const UserProfileZ = z.object({
-    uid: z.string(),
-    created: z.string().datetime(),
-    name: z.string(),
-    birth: ISODateZ,
-    expYears: z.number().refine(i => i > 0),
-    email: z.string().email(),
-})
-export type UserProfile = z.infer<typeof UserProfileZ>
-
-export const InitialUserZ = UserProfileZ.partial({
-    name: true,
-    birth: true,
-    expYears: true,
-    email: true,
-})
-
-export type ProfileFormData = {
-    name: string
-    birth: string | Date
-    expYears: string
-}
-
-export type EntryFormData = {
-    start: string
-    note: string
-    tags: string[]
-}
+export {
+    LoginFormEntryZ,
+    TagZ,
+    ISODateZ,
+    EntryZ,
+    NewEntryZ,
+    UserProfileZ,
+    InitialUserZ,
+    type Tag,
+    type Entry,
+    type UserProfile,
+    type ProfileFormData,
+    type EntryFormData,
+} from "./schemas"
