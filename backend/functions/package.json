@@ -1,18 +1,17 @@
 {
-  "name": "functions",
+  "name": "lifecal-backend",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "serve": "npm run build -- --watch | firebase emulators:start --only functions",
-    "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
+    "serve": "bun run build -- --watch | firebase emulators:start --only functions",
+    "shell": "bun run build && firebase functions:shell",
+    "start": "bun run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20",
-    "yarn": "4.1.0"
+    "node": "20"
   },
   "main": "lib/index.js",
   "dependencies": {
@@ -31,5 +30,5 @@
     "typescript": "^5.9.3"
   },
   "private": true,
-  "packageManager": "yarn@4.1.0"
+  "packageManager": "bun"
 }
