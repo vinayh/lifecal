@@ -20,7 +20,7 @@ jobs:
 
       - run: bun install
 
-      - run: bun test:coverage
+      - run: bun run test:coverage
 
       - uses: codecov/codecov-action@v6
         with:
@@ -41,7 +41,7 @@ jobs:
 
       - run: bun install
 
-      - run: bun test:coverage
+      - run: bun run test:coverage
 
       - uses: codecov/codecov-action@v6
         with:
